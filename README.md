@@ -25,6 +25,8 @@ When `DATABASE_URL` is unset, Django uses the local `backend/db.sqlite3` file. T
 DATABASE_URL=postgresql://assignment_tracker:your-password@127.0.0.1:5432/assignment_tracker
 ```
 
+For an HTTPS production deployment, set `DJANGO_DEBUG=false`, generate a unique `DJANGO_SECRET_KEY` of at least 50 characters, and set `DJANGO_ALLOWED_HOSTS` and `DJANGO_CORS_ALLOWED_ORIGINS` to the exact API host and frontend origin. Production settings enable HTTPS redirects, HSTS, secure session and CSRF cookies, content-type protection, and a strict referrer policy. If TLS terminates at a reverse proxy, configure that proxy to forward the original HTTPS scheme before setting `DJANGO_SECURE_SSL_REDIRECT=false`; do not disable the redirect for a directly exposed HTTP deployment. Configure PostgreSQL credentials and email provider settings separately for the deployment.
+
 If the database requires TLS, add `?sslmode=require` to the URL. Run `python manage.py migrate` after selecting the database. Migrations create the schema; they do not copy existing SQLite records into PostgreSQL.
 
 Phase 7 reminders use Celery and a local Redis server. Redis is free and runs on your computer; there is no subscription or account. Install Redis using your operating system's package instructions, then start it before the worker. The Python requirements include Celery with its Redis support.
@@ -115,6 +117,20 @@ celery -A config beat --loglevel=INFO
 ```
 
 The API exposes `GET /api/v1/notifications/` and `POST /api/v1/notifications/{id}/read/`. Set `CELERY_BROKER_URL` in `backend/.env` only if your local Redis uses a different address.
+
+## Vercel deployment preparation
+
+This repository is configured for two Vercel projects connected to the same Git repository:
+
+1. Create the **frontend project** with Root Directory `frontend`, Framework Preset `Vite`, Build Command `npm run build`, and Output Directory `dist`. `frontend/vercel.json` rewrites browser routes to the SPA entry point.
+2. Create the **API project** with Root Directory `backend`. Vercel detects the Django project from `manage.py` and `requirements.txt`.
+3. In the API project's environment settings, set `DJANGO_DEBUG=false`, a unique `DJANGO_SECRET_KEY` of at least 50 characters, `DJANGO_ALLOWED_HOSTS` to the API's Vercel hostname, `DJANGO_CORS_ALLOWED_ORIGINS` to the frontend's production origin, and `DATABASE_URL` to a managed PostgreSQL database. Add the provider's database TLS option when required.
+4. In the frontend project's environment settings, set `VITE_API_BASE_URL` to `https://<api-host>/api/v1` and redeploy it.
+5. Run Django migrations against the production database before accepting real users. Create the instructor and student demo accounts using the Django admin or a controlled management command.
+
+The application is not fully production-ready from these settings alone. Uploaded files currently use Django's local media directory, which is not persistent storage for serverless deployments. Configure object storage and a Django storage backend before relying on assignment or submission attachments. Celery workers and Celery Beat also need a host that runs persistent worker processes; Vercel request functions do not start those processes. Until that worker and scheduler are deployed, assignment reminders will not be generated. Keep notification claims limited accordingly.
+
+Provider dashboard work is manual: create both Vercel projects, provision managed PostgreSQL and compatible Redis/worker hosting, enter secrets and origins as environment variables, and perform the initial migration. Never commit production secrets or database URLs.
 
 ## Testing
 
