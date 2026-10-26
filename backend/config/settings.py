@@ -121,6 +121,28 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+if os.getenv("AWS_STORAGE_BUCKET_NAME"):
+    INSTALLED_APPS += ["storages"]
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": {
+                "bucket_name": os.environ["AWS_STORAGE_BUCKET_NAME"],
+                "endpoint_url": os.environ["AWS_S3_ENDPOINT_URL"],
+                "access_key": os.environ["AWS_ACCESS_KEY_ID"],
+                "secret_key": os.environ["AWS_SECRET_ACCESS_KEY"],
+                "region_name": os.getenv("AWS_S3_REGION_NAME", "auto"),
+                "default_acl": None,
+                "querystring_auth": True,
+                "file_overwrite": False,
+                "signature_version": "s3v4",
+            },
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.getenv("DJANGO_CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
@@ -138,9 +160,18 @@ REST_FRAMEWORK = {
 AUTHENTICATION_BACKENDS = ["users.backends.EmailOrUsernameBackend"]
 
 # Local development prints reminder emails in the Celery worker terminal.
-EMAIL_BACKEND = os.getenv(
-    "DJANGO_EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
-)
+if os.getenv("EMAIL_HOST"):
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = os.environ["EMAIL_HOST"]
+    EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+    EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+    EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+    EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
+    EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() == "true"
+else:
+    EMAIL_BACKEND = os.getenv(
+        "DJANGO_EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+    )
 DEFAULT_FROM_EMAIL = os.getenv("DJANGO_DEFAULT_FROM_EMAIL", "assignment-tracker@localhost")
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://127.0.0.1:6379/0")

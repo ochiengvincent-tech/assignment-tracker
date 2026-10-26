@@ -128,9 +128,17 @@ This repository is configured for two Vercel projects connected to the same Git 
 4. In the frontend project's environment settings, set `VITE_API_BASE_URL` to `https://<api-host>/api/v1` and redeploy it.
 5. Run Django migrations against the production database before accepting real users. Create the instructor and student demo accounts using the Django admin or a controlled management command.
 
-The application is not fully production-ready from these settings alone. Uploaded files currently use Django's local media directory, which is not persistent storage for serverless deployments. Configure object storage and a Django storage backend before relying on assignment or submission attachments. Celery workers and Celery Beat also need a host that runs persistent worker processes; Vercel request functions do not start those processes. Until that worker and scheduler are deployed, assignment reminders will not be generated. Keep notification claims limited accordingly.
+The application needs persistent object storage for production uploads, plus a host for the Celery worker and Beat scheduler. Vercel request functions do not start persistent worker processes. Until those services are configured and deployed, production attachments and automatic reminders are unavailable.
 
 Provider dashboard work is manual: create both Vercel projects, provision managed PostgreSQL and compatible Redis/worker hosting, enter secrets and origins as environment variables, and perform the initial migration. Never commit production secrets or database URLs.
+
+### Attachments and reminder worker
+
+Production attachment storage is configured for an S3-compatible bucket such as Cloudflare R2. Create a private bucket and an R2 token with object read/write access, then set `AWS_STORAGE_BUCKET_NAME`, `AWS_S3_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` on the Django API project. The API continues to authorize downloads before reading objects; keep the bucket private. These variables must be present before users upload production attachments. Without them, Django falls back to local storage, which is suitable only for development and is not persistent on Vercel.
+
+`render.yaml` provisions a Render background worker that runs Celery worker and Beat together for this small project. Create the worker from the repository Blueprint and provide its prompted environment values. Set `DATABASE_URL` to the same Neon PostgreSQL connection string, `DJANGO_SECRET_KEY` to the same production Django secret, `DJANGO_ALLOWED_HOSTS` to the API hostname, `DJANGO_CORS_ALLOWED_ORIGINS` to the frontend origin, and `CELERY_BROKER_URL` to the Upstash **Redis TCP connection URL** (`rediss://...`), not its REST URL/token. The worker and API must use the same Neon database and Redis database. The combined worker/Beat process is a single instance; do not start a second copy of Beat against the same schedule.
+
+For real reminder email, configure SMTP variables (`EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `EMAIL_USE_SSL`, and `DJANGO_DEFAULT_FROM_EMAIL`) both on the Vercel API project and the Render worker. Use the email provider's verified sender address. If SMTP is not configured, the local console backend only writes messages to logs and cannot deliver external email.
 
 ## Testing
 
