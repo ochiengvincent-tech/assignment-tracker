@@ -43,6 +43,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
             "status",
             "response_text",
             "grade",
+            "instructor_comment",
             "submitted_at",
             "is_late",
             "attachments",
@@ -86,7 +87,8 @@ class SubmissionGradeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Submission
-        fields = ("grade",)
+        fields = ("grade", "instructor_comment")
+        extra_kwargs = {"instructor_comment": {"required": False, "allow_blank": True}}
 
     def validate(self, attrs):
         if self.instance.status not in (Submission.Status.SUBMITTED, Submission.Status.GRADED):
@@ -95,8 +97,9 @@ class SubmissionGradeSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         instance.grade = validated_data["grade"]
+        instance.instructor_comment = validated_data.get("instructor_comment", instance.instructor_comment)
         instance.status = Submission.Status.GRADED
-        instance.save(update_fields=("grade", "status", "updated_at"))
+        instance.save(update_fields=("grade", "instructor_comment", "status", "updated_at"))
         return instance
 
 

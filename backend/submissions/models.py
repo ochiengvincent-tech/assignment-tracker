@@ -27,6 +27,7 @@ class Submission(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_PROGRESS)
     response_text = models.TextField(blank=True)
     grade = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    instructor_comment = models.TextField(blank=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

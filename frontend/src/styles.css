@@ -27,12 +27,11 @@ body { margin: 0; min-width: 320px; min-height: 100vh; }
 }
 .welcome-wide { width: min(100%, 860px); }
 
-.eyebrow, .phase { color: #64748b; font-size: 0.875rem; }
+.eyebrow { color: #64748b; font-size: 0.875rem; }
 .eyebrow { margin: 0 0 14px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; }
 h1 { max-width: 12ch; margin: 0; font-size: clamp(2rem, 7vw, 3.5rem); line-height: 1.05; letter-spacing: -0.045em; }
 .intro { max-width: 48ch; margin: 20px 0 28px; color: #475569; font-size: 1.1rem; line-height: 1.6; }
 .connection { padding: 14px 16px; border-radius: 10px; background: #f1f5f9; color: #334155; }
-.phase { margin: 24px 0 0; }
 .sign-in-form { display: grid; gap: 10px; }
 .sign-in-form label { margin-top: 8px; color: #334155; font-size: 0.925rem; font-weight: 600; }
 .sign-in-form input { width: 100%; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 9px; color: inherit; font: inherit; }
@@ -98,9 +97,12 @@ h1 { max-width: 12ch; margin: 0; font-size: clamp(2rem, 7vw, 3.5rem); line-heigh
 .status-submitted { background: #fef3c7; color: #92400e; }
 .status-graded { background: #dcfce7; color: #166534; }
 .grade-display { margin: 0; color: #166534; font-weight: 700; }
+.instructor-feedback { padding: 10px 12px; border-left: 3px solid #2563eb; border-radius: 0 8px 8px 0; background: #eff6ff; }
+.instructor-feedback h5, .instructor-feedback h6 { margin: 0 0 5px; color: #1e3a8a; font-size: 0.88rem; }
+.instructor-feedback p { margin: 0; color: #334155; line-height: 1.5; white-space: pre-wrap; }
 .submission-form { display: grid; gap: 9px; }
 .submission-form label, .grade-form label { display: grid; gap: 5px; color: #334155; font-size: 0.85rem; font-weight: 600; }
-.submission-form textarea, .submission-form input[type="file"], .grade-form input { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 8px; color: inherit; font: inherit; font-weight: 400; }
+.submission-form textarea, .submission-form input[type="file"], .grade-form input, .grade-form textarea { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 8px; color: inherit; font: inherit; font-weight: 400; }
 .grade-form { display: flex; align-items: end; gap: 12px; margin-top: 10px; }
 .grade-form label { flex: 1; max-width: 180px; }
 .instructor-submissions { display: grid; gap: 10px; }

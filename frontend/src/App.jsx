@@ -105,12 +105,12 @@ export default function App() {
           </>
         ) : (
           <>
-            <p className="intro">Sign in with the account created for you by the instructor.</p>
+            <p className="intro">Sign in to your account to continue.</p>
             <form className="sign-in-form" onSubmit={handleSignIn}>
               <label htmlFor="username">Username or email</label>
-              <input id="username" name="username" autoComplete="username" required />
+              <input id="username" name="username" autoComplete="username" placeholder="Enter username or email" required />
               <label htmlFor="password">Password</label>
-              <input id="password" name="password" type="password" autoComplete="current-password" required />
+              <input id="password" name="password" type="password" autoComplete="current-password" placeholder="Enter password" required />
               {error && <p className="error" role="alert">{error}</p>}
               <button className="button" type="submit" disabled={busy}>
                 {busy ? "Signing in…" : "Sign in"}
@@ -118,7 +118,6 @@ export default function App() {
             </form>
           </>
         )}
-        <p className="phase">Student experience · Phase 7</p>
       </section>
     </main>
   );
@@ -740,7 +739,7 @@ function SubmissionPanel({ user, assignment }) {
     setError("");
     setNotice("");
     try {
-      await gradeSubmission(submission.id, form.get("grade"));
+      await gradeSubmission(submission.id, form.get("grade"), form.get("instructor_comment"));
       await refresh();
       setNotice(`Grade saved for ${submission.student_name}.`);
     } catch (err) {
@@ -765,6 +764,12 @@ function SubmissionPanel({ user, assignment }) {
               <p className="hint">Submitted {new Date(ownSubmission.submitted_at).toLocaleString()}{ownSubmission.is_late ? " · late" : ""}</p>
             )}
             {ownSubmission.grade !== null && <p className="grade-display">Grade: {ownSubmission.grade}%</p>}
+            {ownSubmission.instructor_comment && (
+              <div className="instructor-feedback">
+                <h5>Instructor feedback</h5>
+                <p>{ownSubmission.instructor_comment}</p>
+              </div>
+            )}
             {ownSubmission.status === "in_progress" ? (
               <form className="submission-form" ref={draftForm}>
                 <label>Your response<textarea name="response_text" rows="4" defaultValue={ownSubmission.response_text} /></label>
@@ -805,10 +810,17 @@ function SubmissionPanel({ user, assignment }) {
                   <p className="hint">Submitted {new Date(submission.submitted_at).toLocaleString()}{submission.is_late ? " · late" : ""}</p>
                 )}
                 {submission.response_text && <p className="assignment-description">{submission.response_text}</p>}
+                {submission.instructor_comment && (
+                  <div className="instructor-feedback">
+                    <h6>Previous feedback</h6>
+                    <p>{submission.instructor_comment}</p>
+                  </div>
+                )}
                 <AttachmentList attachments={submission.attachments} canDelete={false} />
                 {submission.status !== "in_progress" && (
                   <form className="grade-form" onSubmit={(event) => handleGrade(event, submission)}>
                     <label>Grade (%)<input name="grade" type="number" min="0" max="100" step="0.01" defaultValue={submission.grade ?? ""} required /></label>
+                    <label>Feedback for student<textarea name="instructor_comment" rows="3" defaultValue={submission.instructor_comment || ""} placeholder="Add comments about the submission (optional)" /></label>
                     <button className="text-button" type="submit" disabled={busy}>{submission.grade === null ? "Save grade" : "Update grade"}</button>
                   </form>
                 )}

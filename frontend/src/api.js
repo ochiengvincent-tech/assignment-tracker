@@ -117,10 +117,10 @@ export function submitSubmission(submissionId) {
   return request(`/submissions/${submissionId}/submit/`, { method: "POST" });
 }
 
-export function gradeSubmission(submissionId, grade) {
+export function gradeSubmission(submissionId, grade, instructorComment) {
   return request(`/submissions/${submissionId}/`, {
     method: "PATCH",
-    body: JSON.stringify({ grade: Number(grade) }),
+    body: JSON.stringify({ grade: Number(grade), instructor_comment: instructorComment }),
   });
 }
 
