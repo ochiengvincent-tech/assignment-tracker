@@ -134,7 +134,9 @@ if os.getenv("AWS_STORAGE_BUCKET_NAME"):
                 "region_name": os.getenv("AWS_S3_REGION_NAME", "auto"),
                 "default_acl": None,
                 "querystring_auth": True,
-                "file_overwrite": False,
+                # attachment_upload_path creates UUID keys, so collision checks
+                # via HeadObject are unnecessary and can fail on S3-compatible stores.
+                "file_overwrite": True,
                 "signature_version": "s3v4",
             },
         },
