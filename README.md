@@ -25,11 +25,11 @@ When `DATABASE_URL` is unset, Django uses the local `backend/db.sqlite3` file. T
 DATABASE_URL=postgresql://assignment_tracker:your-password@127.0.0.1:5432/assignment_tracker
 ```
 
-For an HTTPS production deployment, set `DJANGO_DEBUG=false`, generate a unique `DJANGO_SECRET_KEY` of at least 50 characters, and set `DJANGO_ALLOWED_HOSTS` and `DJANGO_CORS_ALLOWED_ORIGINS` to the exact API host and frontend origin. Production settings enable HTTPS redirects, HSTS, secure session and CSRF cookies, content-type protection, and a strict referrer policy. If TLS terminates at a reverse proxy, configure that proxy to forward the original HTTPS scheme before setting `DJANGO_SECURE_SSL_REDIRECT=false`; do not disable the redirect for a directly exposed HTTP deployment. Configure PostgreSQL credentials and email provider settings separately for the deployment.
+For an HTTPS production deployment, set `DJANGO_DEBUG=false`, generate a unique `DJANGO_SECRET_KEY` of at least 50 characters, and set `DJANGO_ALLOWED_HOSTS` and `DJANGO_CORS_ALLOWED_ORIGINS` to the exact API host and frontend origin. Production settings enable HTTPS redirects, HSTS, secure session and CSRF cookies, content-type protection, and a strict referrer policy. If TLS terminates at a reverse proxy, configure that proxy to forward the original HTTPS scheme before setting `DJANGO_SECURE_SSL_REDIRECT=false`; do not disable the redirect for a directly exposed HTTP deployment. Configure PostgreSQL and persistent storage separately for the deployment; email delivery is not required for in-app reminders.
 
 If the database requires TLS, add `?sslmode=require` to the URL. Run `python manage.py migrate` after selecting the database. Migrations create the schema; they do not copy existing SQLite records into PostgreSQL.
 
-Phase 7 reminders use Celery and a local Redis server. Redis is free and runs on your computer; there is no subscription or account. Install Redis using your operating system's package instructions, then start it before the worker. The Python requirements include Celery with its Redis support.
+The optional local Celery reminder runner uses Redis on your development computer. Production reminders instead use GitHub Actions and do not need Redis. To run the Celery worker locally, install Redis using your operating system's package instructions, then start it. The Python requirements include Celery with Redis support.
 
 On Ubuntu, install and start Redis with:
 
@@ -96,7 +96,7 @@ Assignment and submission files are stored in the local `backend/media/` directo
 
 ## Phase 7: reminders and notifications
 
-Celery Beat checks every minute for assignments due within 24 hours and creates one reminder per enrolled student who has not submitted. Reminder creation is idempotent. Notifications are stored in the app, students can mark them as read, and the list refreshes every minute. The default email backend prints reminder messages in the Celery worker terminal; it does not send email externally. Sending real email would require an SMTP account or email provider, so it is not enabled by default. Push notifications are not included.
+The reminder command creates one in-app reminder for each enrolled student with an assignment due within 24 hours and no submitted work. Creation is idempotent. Notifications are stored in the app, students can mark them as read, and the list refreshes every minute. Production runs the command from GitHub Actions every five minutes; email and push notifications are not part of this setup. The Celery worker and Beat instructions below are for local development only.
 
 Keep Django running, then open separate backend terminals for Redis, the Celery worker, and Celery Beat. If Redis is already installed as a service, start the service instead of launching another Redis process:
 
@@ -128,17 +128,26 @@ This repository is configured for two Vercel projects connected to the same Git 
 4. In the frontend project's environment settings, set `VITE_API_BASE_URL` to `https://<api-host>/api/v1` and redeploy it.
 5. Run Django migrations against the production database before accepting real users. Create the instructor and student demo accounts using the Django admin or a controlled management command.
 
-The application needs persistent object storage for production uploads, plus a host for the Celery worker and Beat scheduler. Vercel request functions do not start persistent worker processes. Until those services are configured and deployed, production attachments and automatic reminders are unavailable.
+Production uploads need persistent object storage. Production reminders are scheduled by GitHub Actions, so no separate worker host or Redis broker is required for reminders.
 
-Provider dashboard work is manual: create both Vercel projects, provision managed PostgreSQL and compatible Redis/worker hosting, enter secrets and origins as environment variables, and perform the initial migration. Never commit production secrets or database URLs.
+Provider dashboard work is manual: create both Vercel projects, provision managed PostgreSQL, configure persistent object storage, enter secrets and origins as environment variables, and perform the initial migration. Never commit production secrets or database URLs.
 
-### Attachments and reminder worker
+### Attachments and reminders
 
 Production attachment storage is configured for an S3-compatible bucket such as Cloudflare R2. Create a private bucket and an R2 token with object read/write access, then set `AWS_STORAGE_BUCKET_NAME`, `AWS_S3_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` on the Django API project. The API continues to authorize downloads before reading objects; keep the bucket private. These variables must be present before users upload production attachments. Without them, Django falls back to local storage, which is suitable only for development and is not persistent on Vercel.
 
-`render.yaml` provisions a Render background worker that runs Celery worker and Beat together for this small project. Create the worker from the repository Blueprint and provide its prompted environment values. Set `DATABASE_URL` to the same Neon PostgreSQL connection string, `DJANGO_SECRET_KEY` to the same production Django secret, `DJANGO_ALLOWED_HOSTS` to the API hostname, `DJANGO_CORS_ALLOWED_ORIGINS` to the frontend origin, and `CELERY_BROKER_URL` to the Upstash **Redis TCP connection URL** (`rediss://...`), not its REST URL/token. The worker and API must use the same Neon database and Redis database. The combined worker/Beat process is a single instance; do not start a second copy of Beat against the same schedule.
+### Production in-app reminder schedule
 
-For real reminder email, configure SMTP variables (`EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `EMAIL_USE_SSL`, and `DJANGO_DEFAULT_FROM_EMAIL`) both on the Vercel API project and the Render worker. Use the email provider's verified sender address. If SMTP is not configured, the local console backend only writes messages to logs and cannot deliver external email.
+`.github/workflows/assignment-reminders.yml` runs `python manage.py create_assignment_reminders` every five minutes and can also be started manually from GitHub Actions. It writes reminders directly to Neon; it does not send email and does not require Redis or a Render worker. Scheduled GitHub Actions can be delayed, so reminders are best-effort rather than real-time.
+
+In GitHub, open the repository's **Settings → Secrets and variables → Actions** and add these repository secrets. Use the same production values already configured for the Django API:
+
+- `DATABASE_URL`: production Neon PostgreSQL connection string.
+- `DJANGO_SECRET_KEY`: production Django secret key.
+- `DJANGO_ALLOWED_HOSTS`: API hostname, without `https://` or a path.
+- `DJANGO_CORS_ALLOWED_ORIGINS`: frontend origin, including `https://`.
+
+Do not place these values in the workflow file. After pushing the workflow to the default branch, confirm Actions are enabled, then use **Actions → Create assignment reminders → Run workflow** for an initial manual run. The scheduled workflow runs every five minutes. Check its run log for the number of reminders created or activated. Neon must allow connections from GitHub-hosted runners; if the database uses an IP allowlist, permit those connections or use a provider-supported secure connection option.
 
 ## Testing
 
