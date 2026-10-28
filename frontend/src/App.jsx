@@ -90,35 +90,75 @@ export default function App() {
     return <main className="page"><p role="status">Checking your session…</p></main>;
   }
 
+  const displayName = user?.first_name || user?.username;
+
   return (
-    <main className="page">
-      <section className={`welcome${user ? " welcome-wide" : ""}`}>
-        <p className="eyebrow">CIS 260 project</p>
-        <h1>Student Assignment Tracker</h1>
-        {user ? (
-          <>
-            <div className="workspace-heading">
-              <p className="intro">Welcome, {user.first_name || user.username}.</p>
-              <button className="button button-secondary" type="button" onClick={handleSignOut}>Sign out</button>
+    <main className={`page ${user ? "page-authenticated" : "page-login"}`}>
+      <div className="app-shell">
+        <header className="app-header">
+          <a className="brand-lockup" href={user ? "/dashboard" : "/login"} aria-label="Assignment Tracker home">
+            <span className="brand-mark" aria-hidden="true">at</span>
+            <span className="brand-copy"><strong>Classwork</strong><span>Assignment tracker</span></span>
+          </a>
+          {user ? (
+            <div className="account-menu">
+              <span className="account-avatar" aria-hidden="true">{displayName?.slice(0, 1).toUpperCase()}</span>
+              <span className="account-copy"><strong>{displayName}</strong><span>{user.role}</span></span>
+              <button className="button button-secondary sign-out-button" type="button" onClick={handleSignOut}>Sign out</button>
             </div>
-            <CourseWorkspace key={user.id} user={user} />
-          </>
-        ) : (
-          <>
-            <p className="intro">Sign in to your account to continue.</p>
-            <form className="sign-in-form" onSubmit={handleSignIn}>
-              <label htmlFor="username">Username or email</label>
-              <input id="username" name="username" autoComplete="username" placeholder="Enter username or email" required />
-              <label htmlFor="password">Password</label>
-              <input id="password" name="password" type="password" autoComplete="current-password" placeholder="Enter password" required />
-              {error && <p className="error" role="alert">{error}</p>}
-              <button className="button" type="submit" disabled={busy}>
-                {busy ? "Signing in…" : "Sign in"}
-              </button>
-            </form>
-          </>
-        )}
-      </section>
+          ) : <p className="header-note">A calmer way to keep coursework moving</p>}
+        </header>
+
+        <section className={`welcome${user ? " welcome-wide" : ""}`}>
+          {user ? (
+            <>
+              <div className="workspace-hero">
+                <div>
+                  <p className="eyebrow">{user.role} workspace</p>
+                  <h1>A clearer view of coursework.</h1>
+                  <p className="intro">Welcome, {displayName}.</p>
+                </div>
+                <div className="hero-orbit" aria-hidden="true"><span>01</span><i /><b /></div>
+              </div>
+              <CourseWorkspace key={user.id} user={user} />
+            </>
+          ) : (
+            <div className="login-layout">
+              <div className="login-story">
+                <p className="eyebrow">CIS 260 project</p>
+                <h1>Student Assignment Tracker</h1>
+                <p className="intro">Courses, deadlines, submissions, and feedback together in one clear workspace.</p>
+                <div className="login-preview" aria-hidden="true">
+                  <div className="preview-top"><span /><span /><span /></div>
+                  <div className="preview-label">YOUR WEEK</div>
+                  <div className="preview-task"><span className="preview-check">✓</span><span><strong>Keep work on track</strong><small>See what is due and what needs attention</small></span><i /></div>
+                  <div className="preview-task preview-task-muted"><span className="preview-dot" /><span><strong>Stay in the loop</strong><small>Find grades and instructor feedback</small></span></div>
+                </div>
+              </div>
+              <div className="login-card">
+                <div className="login-card-heading">
+                  <span className="login-icon" aria-hidden="true">↗</span>
+                  <p className="eyebrow">Your learning space</p>
+                  <h2>Welcome back</h2>
+                  <p>Sign in with your account to continue.</p>
+                </div>
+                <form className="sign-in-form" onSubmit={handleSignIn}>
+                  <label htmlFor="username">Username or email</label>
+                  <input id="username" name="username" autoComplete="username" placeholder="Enter username or email" required />
+                  <label htmlFor="password">Password</label>
+                  <input id="password" name="password" type="password" autoComplete="current-password" placeholder="Enter password" required />
+                  {error && <p className="error" role="alert">{error}</p>}
+                  <button className="button sign-in-button" type="submit" disabled={busy}>
+                    {busy ? "Signing in…" : "Sign in"}<span aria-hidden="true">→</span>
+                  </button>
+                </form>
+                <p className="login-footnote">Use the account created for you by your instructor.</p>
+              </div>
+            </div>
+          )}
+        </section>
+        <footer className="app-footer"><span>Classwork</span><span>Stay organized. Keep moving.</span></footer>
+      </div>
     </main>
   );
 }
