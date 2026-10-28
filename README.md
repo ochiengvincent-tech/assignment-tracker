@@ -156,9 +156,6 @@ In GitHub, open the repository's **Settings → Secrets and variables → Action
 
 Do not place these values in the workflow file. Confirm Actions are enabled and that the workflow file is on the default branch. Use **Actions → Create assignment reminders → Run workflow** to run it manually when needed. Check the run log for the number of reminders created or activated. Neon must allow connections from GitHub-hosted runners; if the database uses an IP allowlist, permit those connections or use a provider-supported secure connection option.
 
-## Final course deliverables
-
-The proposal identifies a final presentation and technical report as the remaining course deliverables, due by December 4. Prepare a short live demo of instructor course and assignment creation, student submission with an attachment, instructor grading with feedback, the student's grade and feedback view, and an in-app reminder. Include test evidence, the deployed architecture, setup instructions, and the decision to use in-app reminders instead of email or push delivery in the report.
 
 ## Testing
 
