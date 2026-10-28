@@ -88,7 +88,7 @@ Instructors can add, edit, and delete assignments inside their courses. Each ass
 
 Students can start a draft, save a written response, attach files, and submit their work. Submitted work cannot be edited in the MVP. Instructors can review work for their own courses and enter a grade from 0 to 100. Late submissions are accepted and marked late in the interface.
 
-Assignment and submission files are stored in the local `backend/media/` directory. PDF, Word, text, JPG, and PNG files up to 10 MB each are accepted; downloads require sign-in and course access. The API supports draft creation and updates, `POST /api/v1/submissions/{id}/submit/`, instructor grade updates through `PATCH /api/v1/submissions/{id}/`, and multipart uploads at `POST /api/v1/attachments/`.
+During local development, assignment and submission files use `backend/media/`. Production files use private Cloudflare R2 object storage. PDF, Word, text, JPG, and PNG files up to 10 MB each are accepted; downloads require sign-in and course access. The API supports draft creation and updates, `POST /api/v1/submissions/{id}/submit/`, instructor grades and comments through `PATCH /api/v1/submissions/{id}/`, and multipart uploads at `POST /api/v1/attachments/`.
 
 ## Phase 6: dashboard and timeline
 
@@ -96,7 +96,7 @@ Assignment and submission files are stored in the local `backend/media/` directo
 
 ## Phase 7: reminders and notifications
 
-The reminder command creates one in-app reminder for each enrolled student with an assignment due within 24 hours and no submitted work. Creation is idempotent. Notifications are stored in the app, students can mark them as read, and the list refreshes every minute. Production runs the command from GitHub Actions every five minutes; email and push notifications are not part of this setup. The Celery worker and Beat instructions below are for local development only.
+The reminder command creates one in-app reminder for each enrolled student with an assignment due within 24 hours and no submitted work. Creation is idempotent. Notifications are stored in the app, students can mark them as read, and the list refreshes every minute. Production runs the command from GitHub Actions every 15 minutes; email and push notifications are not part of the deployed setup. The Celery worker and Beat instructions below are optional local development components only.
 
 Keep Django running, then open separate backend terminals for Redis, the Celery worker, and Celery Beat. If Redis is already installed as a service, start the service instead of launching another Redis process:
 
@@ -118,27 +118,34 @@ celery -A config beat --loglevel=INFO
 
 The API exposes `GET /api/v1/notifications/` and `POST /api/v1/notifications/{id}/read/`. Set `CELERY_BROKER_URL` in `backend/.env` only if your local Redis uses a different address.
 
-## Vercel deployment preparation
+## Phase 8: hardening
 
-This repository is configured for two Vercel projects connected to the same Git repository:
+The interface is responsive and supports both student and instructor roles. Production settings disable Django debug mode, enforce HTTPS security headers and cookies, restrict allowed hosts and CORS origins, and use scoped API querysets and permissions. Attachment downloads require authentication and authorization. The instructor can leave written grading feedback that is visible to the student alongside the grade.
 
-1. Create the **frontend project** with Root Directory `frontend`, Framework Preset `Vite`, Build Command `npm run build`, and Output Directory `dist`. `frontend/vercel.json` rewrites browser routes to the SPA entry point.
-2. Create the **API project** with Root Directory `backend`. Vercel detects the Django project from `manage.py` and `requirements.txt`.
-3. In the API project's environment settings, set `DJANGO_DEBUG=false`, a unique `DJANGO_SECRET_KEY` of at least 50 characters, `DJANGO_ALLOWED_HOSTS` to the API's Vercel hostname, `DJANGO_CORS_ALLOWED_ORIGINS` to the frontend's production origin, and `DATABASE_URL` to a managed PostgreSQL database. Add the provider's database TLS option when required.
-4. In the frontend project's environment settings, set `VITE_API_BASE_URL` to `https://<api-host>/api/v1` and redeploy it.
-5. Run Django migrations against the production database before accepting real users. Create the instructor and student demo accounts using the Django admin or a controlled management command.
+Hardening and deployment verification have been completed by the project owner. Re-run the security review and production smoke checks after changes to authentication, authorization, uploads, grading, or deployment configuration.
 
-Production uploads need persistent object storage. Production reminders are scheduled by GitHub Actions, so no separate worker host or Redis broker is required for reminders.
+## Phase 9: testing
 
-Provider dashboard work is manual: create both Vercel projects, provision managed PostgreSQL, configure persistent object storage, enter secrets and origins as environment variables, and perform the initial migration. Never commit production secrets or database URLs.
+The project includes backend Django tests, frontend Jest/React Testing Library tests, and a Playwright end-to-end assignment flow. The project owner reports that the test and hardening pass is complete. Commands for repeating the test suites are in [Testing](#testing).
+
+## Phase 10: deployment
+
+The production application is deployed with the React/Vite frontend and Django API on separate Vercel projects, Neon PostgreSQL for application data, Cloudflare R2 for private attachment storage, and GitHub Actions for scheduled in-app reminders. The production database has been migrated and the application has been smoke-tested.
+
+- Frontend: [assignment-tracker-orpin-xi.vercel.app](https://assignment-tracker-orpin-xi.vercel.app)
+- API health: [assignment-tracker-hnh4.vercel.app/api/v1/health/](https://assignment-tracker-hnh4.vercel.app/api/v1/health/)
+
+The frontend Vercel project uses Root Directory `frontend`, Framework Preset `Vite`, Build Command `npm run build`, and Output Directory `dist`. `frontend/vercel.json` rewrites browser routes to the SPA entry point. The API project uses Root Directory `backend` and the Django project detected from `manage.py` and `requirements.txt`.
+
+Keep deployment secrets in Vercel and GitHub repository secrets; never commit production environment files, database URLs, or credentials. The production frontend uses `VITE_API_BASE_URL=https://assignment-tracker-hnh4.vercel.app/api/v1`. The API uses Neon through `DATABASE_URL`, and its CORS and host settings must match the frontend and API hostnames.
 
 ### Attachments and reminders
 
-Production attachment storage is configured for an S3-compatible bucket such as Cloudflare R2. Create a private bucket and an R2 token with object read/write access, then set `AWS_STORAGE_BUCKET_NAME`, `AWS_S3_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` on the Django API project. The API continues to authorize downloads before reading objects; keep the bucket private. These variables must be present before users upload production attachments. Without them, Django falls back to local storage, which is suitable only for development and is not persistent on Vercel.
+Production attachment storage uses a private Cloudflare R2 bucket. The API project's `AWS_STORAGE_BUCKET_NAME`, `AWS_S3_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` values point to that bucket. For a new deployment, create a private bucket and an R2 token with object read/write access, then add those variables to the Django API project's environment. The API authorizes downloads before reading objects. Without the R2 variables, Django falls back to local storage, which is suitable only for development and is not persistent on Vercel.
 
 ### Production in-app reminder schedule
 
-`.github/workflows/assignment-reminders.yml` runs `python manage.py create_assignment_reminders` every five minutes and can also be started manually from GitHub Actions. It writes reminders directly to Neon; it does not send email and does not require Redis or a Render worker. Scheduled GitHub Actions can be delayed, so reminders are best-effort rather than real-time.
+`.github/workflows/assignment-reminders.yml` runs `python manage.py create_assignment_reminders` at minutes 9, 24, 39, and 54 of every hour (UTC; 12, 27, 42, and 57 in East Africa Time). It can also be started manually from GitHub Actions. The job writes reminders directly to Neon; it does not send email and does not require Redis or a Render worker. Scheduled GitHub Actions can be delayed, so reminders are best-effort rather than real-time.
 
 In GitHub, open the repository's **Settings → Secrets and variables → Actions** and add these repository secrets. Use the same production values already configured for the Django API:
 
@@ -147,18 +154,22 @@ In GitHub, open the repository's **Settings → Secrets and variables → Action
 - `DJANGO_ALLOWED_HOSTS`: API hostname, without `https://` or a path.
 - `DJANGO_CORS_ALLOWED_ORIGINS`: frontend origin, including `https://`.
 
-Do not place these values in the workflow file. After pushing the workflow to the default branch, confirm Actions are enabled, then use **Actions → Create assignment reminders → Run workflow** for an initial manual run. The scheduled workflow runs every five minutes. Check its run log for the number of reminders created or activated. Neon must allow connections from GitHub-hosted runners; if the database uses an IP allowlist, permit those connections or use a provider-supported secure connection option.
+Do not place these values in the workflow file. Confirm Actions are enabled and that the workflow file is on the default branch. Use **Actions → Create assignment reminders → Run workflow** to run it manually when needed. Check the run log for the number of reminders created or activated. Neon must allow connections from GitHub-hosted runners; if the database uses an IP allowlist, permit those connections or use a provider-supported secure connection option.
+
+## Final course deliverables
+
+The proposal identifies a final presentation and technical report as the remaining course deliverables, due by December 4. Prepare a short live demo of instructor course and assignment creation, student submission with an attachment, instructor grading with feedback, the student's grade and feedback view, and an in-app reminder. Include test evidence, the deployed architecture, setup instructions, and the decision to use in-app reminders instead of email or push delivery in the report.
 
 ## Testing
 
-Tests are kept in root-level test folders: `backend/tests/` for Django API integration tests and `frontend/tests/` for React component and Playwright end-to-end tests.
+Backend tests are in `backend/tests/` and in the Django app test modules (for example, `backend/submissions/tests.py`). Frontend component tests and Playwright end-to-end tests are in `frontend/tests/`.
 
 Run the backend suite:
 
 ```sh
 cd backend
 source .venv/bin/activate
-python manage.py test tests
+python manage.py test
 ```
 
 Run the frontend component tests and production build:
@@ -169,13 +180,16 @@ npm test
 npm run build
 ```
 
-Playwright uses Chromium. Install its browser once, then run the browser workflow:
+Playwright needs its matching Chromium browser binary. From the frontend directory, install the Node dependencies if you have not already, then install Chromium and its Linux system libraries:
 
 ```sh
 cd frontend
-npx playwright install chromium
+npm install
+npx playwright install --with-deps chromium
 npm run test:e2e
 ```
+
+On Linux, Playwright may ask for your `sudo` password to install operating-system packages. On macOS or Windows, install just the browser with `npx playwright install chromium`, then run `npm run test:e2e`. The browser binary is cached for reuse; rerun the install command after updating Playwright because each Playwright version may require a matching browser build. See the [Playwright browser installation guide](https://playwright.dev/docs/browsers).
 
 If the Playwright browser download is unavailable but Google Chrome is installed, set its executable path for the run:
 
