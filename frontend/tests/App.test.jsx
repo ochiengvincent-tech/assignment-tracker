@@ -420,8 +420,9 @@ test("an instructor can grade submitted student work", async () => {
   render(<App />);
 
   await user.type(await screen.findByLabelText("Grade (%)"), "88");
+  await user.type(screen.getByLabelText("Feedback for student"), "Clear reasoning.");
   await user.click(screen.getByRole("button", { name: "Save grade" }));
 
-  expect(api.gradeSubmission).toHaveBeenCalledWith(submitted.id, "88");
+  expect(api.gradeSubmission).toHaveBeenCalledWith(submitted.id, "88", "Clear reasoning.");
   expect(await screen.findByText("Grade saved for Learner.")).toBeInTheDocument();
 });
